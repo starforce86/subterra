@@ -1,0 +1,12 @@
+**/staticfiles/*
+**/__pycache__/*
+Pipfile
+*.tfstate
+*.backup
+*.swp
+**/node_modules/*
+.env.template.*
+.env
+*/.idea/*
+
+django_vue_rest_data/

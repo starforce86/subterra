@@ -1,0 +1,14 @@
+{% extends "email_base.html" %}
+
+{% load i18n %}
+{% block email_body %}
+  {% autoescape off %}
+    <p>{% blocktrans %}New inquiry has been submitted by {% endblocktrans %} {{ inquiry.owner }}.</p>
+  <p>
+    {% blocktrans %}
+      Please review it as soon as possible.
+    {% endblocktrans %}
+  </p>
+  {% endautoescape %}
+{% endblock %}
+

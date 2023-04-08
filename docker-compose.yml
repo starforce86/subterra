@@ -1,0 +1,71 @@
+version: '2'
+
+volumes:
+    django_vue_rest_data: {}
+
+services:
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+      - ./.env:/app/.env:ro
+    command: /start.sh
+    entrypoint: /entrypoint.sh
+    restart: on-failure
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+    ports:
+      - "8000:8000"
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./.env:/app/.env:ro
+  #     - ./frontend:/app
+  #   working_dir: /app
+  #   restart: on-failure
+
+  postgres:
+    image: postgres:14.5-alpine
+    volumes:
+      - ./django_vue_rest_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+    ports:
+      - "5433:5432"
+
+  # redis:
+  #   image: redis:7.0-alpine
+
+  # mailhog:
+  #   image: mailhog/mailhog
+  #   ports:
+  #     - "8025:8025"
+  #   logging:
+  #     driver: none
+
+
+  # nginx:
+  #   image: nginx:stable-alpine
+  #   ports:
+  #     - "8000:80"
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./backend/media/:/media/
+  #     - ./backend/staticfiles/:/staticfiles/
+  #     - ./nginx/dev.conf:/etc/nginx/nginx.conf:ro
+  #   logging:
+  #     driver: none

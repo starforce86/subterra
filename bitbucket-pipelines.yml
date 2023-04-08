@@ -1,0 +1,92 @@
+#https://confluence.atlassian.com/bitbucket/configure-bitbucket-pipelines-yml-792298910.html
+#
+#https://community.atlassian.com/t5/Bitbucket-questions/Docker-compose-and-pipelines/qaq-p/67913#M53709
+#https://community.atlassian.com/t5/Bitbucket-questions/Clarity-about-BITBUCKET-CLONE-DIR-I-keep-getting-errors/qaq-p/1327736
+#https://medium.com/magnetcoop/using-docker-compose-in-bitbucket-pipelines-81ead8cf0153
+#https://jira.atlassian.com/browse/BCLOUD-17592?_ga=2.53011680.974259071.1588584963-1497783037.1583935830&error=login_required&error_description=Login+required&state=2a195de6-87d8-4bc7-93f4-b29dcd8beef5
+#https://community.atlassian.com/t5/Bitbucket-Pipelines-questions/Cannot-create-container-for-service-db-authorization-denied-by/qaq-p/1094286
+
+image: docker:stable
+
+pipelines:
+  branches:
+      '{master,develop,staging,deploy*}':
+      - step:
+          name: Build Docker Image for $BITBUCKET_BRANCH
+          caches:
+            - pip
+          script:
+            - echo "Spinning up changes in Docker for testing"
+            - apk add --update --no-cache curl py-pip
+            - apk add --no-cache py-pip python3-dev libffi-dev openssl-dev gcc libc-dev make musl-dev cargo
+            - pip install --upgrade pip
+            - pip install docker-compose
+            - docker-compose up --build -d
+            - docker-compose ps
+            - docker-compose down
+          services:
+            - docker
+            # CODE_REPO is bitbucket_repo_slug replacing - characters with __ for key name use
+      - step:
+          name: Deploy Docker Image for $BITBUCKET_BRANCH
+          script:
+            - export DEPLOYMENT_ENV="$BITBUCKET_BRANCH"  
+            # CODE_REPO is bitbucket_repo_slug replacing - characters with __ for key name use
+            - export CODE_REPO="${BITBUCKET_REPO_SLUG//-/__}"
+            - export KEY_NAME_TEXT="deploy_private_key"
+            - export ANUNDERSCORE="_"
+            - export combined_deploy_key="$CODE_REPO$ANUNDERSCORE$DEPLOYMENT_ENV$ANUNDERSCORE$KEY_NAME_TEXT"
+            - export RESOURCE_KEY_NAME_TEXT="resource_private_key"
+            - export ip_key_name_text="remote_ips"
+            - export combined_resource_key="$CODE_REPO$ANUNDERSCORE$DEPLOYMENT_ENV$ANUNDERSCORE$RESOURCE_KEY_NAME_TEXT"
+            - export combined_ip_key="$CODE_REPO$ANUNDERSCORE$DEPLOYMENT_ENV$ANUNDERSCORE$ip_key_name_text"
+            - echo "combined_resource_key name used by deployment repo will be $combined_resource_key"
+            - echo "combined_deploy_key name used by deployment repo will be $combined_deploy_key"
+            - pipe: atlassian/trigger-pipeline:4.3.1
+              variables:
+                BITBUCKET_USERNAME: $DEPLOYMENT_API_USER
+                BITBUCKET_APP_PASSWORD: $DEPLOYMENT_API_PASSWORD
+                REPOSITORY: $DEPLOYMENT_REPO
+                BRANCH_NAME: $DEPLOYMENT_REPO_BRANCH
+                REF_NAME: $DEPLOYMENT_REPO_BRANCH
+                ACCOUNT: '$DEPLOYMENT_REPO_OWNER'
+                WAIT: 'true'
+                CUSTOM_PIPELINE_NAME: 'deployment-update'
+                PIPELINE_VARIABLES: >
+                  [{
+                    "key": "REPO",
+                    "value": "$BITBUCKET_REPO_SLUG"
+                  },
+                  {
+                    "key": "WORKSPACE",
+                    "value": "$BITBUCKET_WORKSPACE"
+                  },
+                  {
+                    "key": "CODE_BRANCH",
+                    "value": "$BITBUCKET_BRANCH"
+                  },
+                  {
+                    "key": "DEPLOYMENT_BRANCH",
+                    "value": "$DEPLOYMENT_REPO_BRANCH"
+                  },
+                  {
+                    "key": "PRIV_KEY_NAME",
+                    "value": "$PRIV_KEY_NAME"
+                  },
+                  {
+                    "key": "DEPLOYMENT_ENV",
+                    "value": "$DEPLOYMENT_ENV"
+                  },
+                  {
+                    "key": "DEPLOY_KEY_NAME",
+                    "value": "$combined_deploy_key"
+                  },
+                  {
+                    "key": "RESOURCE_KEY_NAME",
+                    "value": "$combined_resource_key"
+                  },
+                  {
+                    "key": "COMBINED_IP_KEY",
+                    "value": "$combined_ip_key"
+                  }
+                  ]
